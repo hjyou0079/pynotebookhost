@@ -1,0 +1,78 @@
+name: Convert Jupyter to HTML
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.ipynb'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'manual rebuild'
+
+env:
+  TRIGGER_TYPE: ${{ github.event_name == 'workflow_dispatch' && 'manual' || 'auto' }}
+
+jobs:
+  convert-and-publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install jupyter nbconvert
+        # Add any additional dependencies your notebooks might need
+        pip install numpy pandas matplotlib
+    
+    - name: Create docs directory if it doesn't exist
+      run: mkdir -p docs
+    
+    - name: Convert notebooks to HTML
+      run: |
+        if [ "${{ env.TRIGGER_TYPE }}" = "manual" ]; then
+          # Manual trigger: convert all notebooks in /notebook folder
+          for file in notebook/*.ipynb; do
+            if [ -f "$file" ]; then
+              jupyter nbconvert --to html --output-dir=./docs "$file"
+            fi
+          done
+        else
+          # Auto trigger: only convert modified notebooks in /notebook folder
+          git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^notebook/.*\.ipynb$' | while read file
+          do
+            if [ -f "$file" ]; then
+              jupyter nbconvert --to html --output-dir=./docs "$file"
+            fi
+          done
+        fi
+    
+    - name: Create index.html if it doesn't exist
+      run: |
+        if [ ! -f docs/index.html ]; then
+          echo "<html><head><title>Jupyter Notebooks</title></head><body>" > docs/index.html
+          echo "<h1>Jupyter Notebooks</h1><ul>" >> docs/index.html
+          for file in docs/*.html; do
+            if [ "$(basename "$file")" != "index.html" ]; then
+              echo "<li><a href='$(basename "$file")'>${file%.html}</a></li>" >> docs/index.html
+            fi
+          done
+          echo "</ul></body></html>" >> docs/index.html
+        fi
+    
+    - name: Commit and push if changed
+      run: |
+        git config --global user.name 'GitHub Actions'
+        git config --global user.email 'actions@github.com'
+        git add docs/
+        git commit -m "Convert Jupyter notebooks to HTML" || exit 0
+        git push
