@@ -75,18 +75,16 @@ jobs:
         echo "Final docs directory content:"
         ls -la docs/
     
-    - name: Create index.html if it doesn't exist
+    - name: Create or update index.html
       run: |
-        if [ ! -f docs/index.html ]; then
-          echo "<html><head><title>Jupyter Notebooks</title></head><body>" > docs/index.html
-          echo "<h1>Jupyter Notebooks</h1><ul>" >> docs/index.html
-          for file in docs/*.html; do
-            if [ "$(basename "$file")" != "index.html" ]; then
-              echo "<li><a href='$(basename "$file")'>${file%.html}</a></li>" >> docs/index.html
-            fi
-          done
-          echo "</ul></body></html>" >> docs/index.html
-        fi
+        echo "<html><head><title>Jupyter Notebooks</title></head><body>" > docs/index.html
+        echo "<h1>Jupyter Notebooks</h1><ul>" >> docs/index.html
+        for file in docs/*.html; do
+          if [ "$(basename "$file")" != "index.html" ]; then
+            echo "<li><a href='$(basename "$file")'>${file%.html}</a></li>" >> docs/index.html
+          fi
+        done
+        echo "</ul></body></html>" >> docs/index.html
     
     - name: Commit and push if changed
       run: |
