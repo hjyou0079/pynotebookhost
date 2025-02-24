@@ -58,29 +58,29 @@ jobs:
           done
         else
           echo "Running in auto mode - processing modified and new notebooks"
-          # Get status of all files
-          echo "Debug: Running git status..."
-          git status --porcelain | while read status file; do
-            # Check if file is a notebook and either added (A) or modified (M)
-            if [[ $file == notebook/*.ipynb ]]; then
-              case $status in
-                "A"*)
-                  echo "Processing new file: $file"
-                  ;;
-                "M"*)
-                  echo "Processing modified file: $file"
-                  ;;
-                *)
-                  echo "Skipping file with status '${status}': $file"
-                  continue
-                  ;;
-              esac
+          current_time=$(date +%s)
+          echo "Current timestamp: $current_time"
+          
+          for file in notebook/*.ipynb; do
+            if [ -f "$file" ]; then
+              # Get the last commit time of the file in Unix timestamp
+              commit_time=$(git log -1 --format=%ct -- "$file")
+              echo "Debug: File '$file' commit time: $commit_time"
               
-              if jupyter nbconvert --to html --output-dir=./docs "$file"; then
-                echo "✅ Successfully converted $file"
+              # Calculate time difference in hours
+              time_diff=$(( ($current_time - $commit_time) / 3600 ))
+              echo "Debug: Time difference in hours: $time_diff"
+              
+              if [ $time_diff -le 24 ]; then
+                echo "Processing new file (committed within 24h): $file"
+                if jupyter nbconvert --to html --output-dir=./docs "$file"; then
+                  echo "✅ Successfully converted $file"
+                else
+                  echo "❌ Failed to convert $file"
+                  exit 1
+                fi
               else
-                echo "❌ Failed to convert $file"
-                exit 1
+                echo "Skipping file (committed more than 24h ago): $file"
               fi
             fi
           done
@@ -103,7 +103,6 @@ jobs:
     - name: Commit and push if changed
       run: |
         git config --global user.name "${{ github.repository_owner }}"
-        # git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         git add docs/
         git commit -m "Convert Jupyter notebooks to HTML (${{ env.TRIGGER_TYPE }}) ${{ github.event.inputs.reason }}" || exit 0
         git push origin HEAD:${{ github.ref }}
