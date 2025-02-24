@@ -57,11 +57,12 @@ jobs:
             fi
           done
         else
-          echo "Running in auto mode - processing only modified notebooks"
-          git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^notebook/.*\.ipynb$' | while read file
+          echo "Running in auto mode - processing modified and new notebooks"
+          # Get both modified and added files
+          git diff --diff-filter=AM --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^notebook/.*\.ipynb$' | while read file
           do
             if [ -f "$file" ]; then
-              echo "Processing modified file: $file"
+              echo "Processing file: $file ($(git diff --diff-filter=A --name-only ${{ github.event.before }} ${{ github.sha }} | grep -q "^${file}$" && echo "new" || echo "modified"))"
               if jupyter nbconvert --to html --output-dir=./docs "$file"; then
                 echo "✅ Successfully converted $file"
               else
