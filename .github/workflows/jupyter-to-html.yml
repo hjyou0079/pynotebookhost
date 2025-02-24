@@ -18,7 +18,7 @@ env:
 jobs:
   convert-and-publish:
     runs-on: ubuntu-latest
-    
+    permissions: write-all
     steps:
     - uses: actions/checkout@v3
     
@@ -71,10 +71,30 @@ jobs:
     
     - name: Commit and push if changed
       run: |
-        git config --global user.name 'github-actions[bot]'
-        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git config --global user.name "${{ github.repository_owner }}"
+        # git config --global user.email 'github-actions[bot]@users.noreply.github.com'
         git add docs/
         git commit -m "Convert Jupyter notebooks to HTML (${{ env.TRIGGER_TYPE }}) ${{ github.event.inputs.reason }}" || exit 0
         git push origin HEAD:${{ github.ref }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy:
+    name: Deploy blog
+    runs-on: ubuntu-20.04
+    needs: convert-and-publish
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4  
+
