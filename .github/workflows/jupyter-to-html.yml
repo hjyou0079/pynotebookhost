@@ -32,7 +32,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install jupyter nbconvert
         # Add any additional dependencies your notebooks might need
-        pip install numpy pandas matplotlib
+        pip install numpy pandas matplotlib jq 
     
     - name: Create docs directory if it doesn't exist
       run: mkdir -p docs
@@ -48,6 +48,7 @@ jobs:
           for file in notebook/*.ipynb; do
             if [ -f "$file" ]; then
               echo "Processing file: $file"
+              jq 'del(.metadata.widgets)' "$file" > tmp.json && mv tmp.json "$file"
               if jupyter nbconvert --to html --output-dir=./docs "$file"; then
                 echo "✅ Successfully converted $file"
               else
@@ -73,6 +74,7 @@ jobs:
               
               if [ $time_diff -le 24 ]; then
                 echo "Processing new file (committed within 24h): $file"
+                jq 'del(.metadata.widgets)' "$file" > tmp.json && mv tmp.json "$file"
                 if jupyter nbconvert --to html --output-dir=./docs "$file"; then
                   echo "✅ Successfully converted $file"
                 else
